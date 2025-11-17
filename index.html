@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抖音视频链接解析工具（自动识别版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 600px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border 0.3s;
+        }
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: opacity 0.3s;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .output-group {
+            margin-top: 20px;
+        }
+        textarea {
+            min-height: 100px;
+            resize: none;
+            word-break: break-all;
+        }
+        .tip {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>抖音视频链接解析工具（自动识别版）</h1>
+        <div class="input-group">
+            <input type="text" id="searchInput" placeholder="请输入抖音视频网址（如https://v.douyin.com/xxx/）" autocomplete="off">
+        </div>
+        <button id="parseBtn">解析生成抖音播放链接</button>
+        <div class="output-group">
+            <textarea id="outputResult" placeholder="解析结果将显示在这里" readonly></textarea>
+        </div>
+        <p class="tip">解析规则：自动识别输入中的抖音网址，提取视频ID并生成播放链接</p>
+    </div>
+    <script>
+        document.getElementById('parseBtn').addEventListener('click', async () => {
+            const inputVal = document.getElementById('searchInput').value.trim();
+            const outputElem = document.getElementById('outputResult');
+            
+            if (!inputVal) {
+                outputElem.value = '请输入抖音视频网址！';
+                return;
+            }
+
+            // 第一步：自动识别输入中的抖音网址（支持v.douyin.com和douyin.com两种域名）
+            const douyinUrlRegex = /(https?:\/\/(?:v\.douyin\.com|douyin\.com)\/\S+)/i;
+            const urlMatch = inputVal.match(douyinUrlRegex);
+            if (!urlMatch) {
+                outputElem.value = '识别失败：未检测到有效的抖音视频网址';
+                return;
+            }
+            const douyinUrl = urlMatch[1]; // 提取识别到的抖音网址
+            outputElem.value = '正在解析网址...';
+
+            try {
+                // 调用接口解析网址，获取视频ID相关响应
+                const apiUrl = `https://api.dwo.cc/api/dj?ckey=&msg=${encodeURIComponent(douyinUrl)}`;
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) throw new Error(`接口请求失败（状态码：${response.status}）`);
+                
+                const rawResponse = await response.text();
+                const lines = rawResponse.split('\n').filter(line => line.trim() !== '');
+                const lastLine = lines[lines.length - 1] || '';
+                
+                // 核心逻辑：提取v开头的视频ID（保持原解析规则）
+                const videoIdRegex = /"url":"(v[\s\S]*?)"}}}/;
+                const matchResult = lastLine.match(videoIdRegex);
+                const videoId = matchResult ? matchResult[1] : '';
+                
+                if (!videoId) {
+                    outputElem.value = '解析失败：未找到符合规则的视频ID';
+                    return;
+                }
+                
+                // 生成最终播放链接并自动复制
+                const finalUrl = `https://www.douyin.com/aweme/v1/play/?video_id=${videoId}`;
+                outputElem.value = finalUrl;
+                
+                try {
+                    await navigator.clipboard.writeText(finalUrl);
+                    alert('链接已自动复制到剪贴板！');
+                } catch (copyErr) {}
+            } catch (error) {
+                outputElem.value = `解析出错：${error.message}`;
+                console.error('解析错误:', error);
+            }
+        });
+
+        // 回车触发解析（保留原功能）
+        document.getElementById('searchInput').addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') document.getElementById('parseBtn').click();
+        });
+    </script>
+</body>
+</html>
